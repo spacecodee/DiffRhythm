@@ -126,10 +126,233 @@ _EXCEPTION_WORDS = {
     'guillermo': 'G IY Y EH1 R M OW',
 }
 
+# List of (regular expression, replacement) pairs for Spanish abbreviations:
+_abbreviations = [
+    (re.compile("\\b%s\\b" % x[0], re.IGNORECASE), x[1])
+    for x in [
+        ("sr", "señor"),
+        ("sra", "señora"),
+        ("srta", "señorita"),
+        ("dr", "doctor"),
+        ("dra", "doctora"),
+        ("ing", "ingeniero"),
+        ("lic", "licenciado"),
+        ("prof", "profesor"),
+        ("av", "avenida"),
+        ("c", "calle"),
+        ("tel", "teléfono"),
+        ("pág", "página"),
+        ("etc", "etcétera"),
+        ("hospital", "hospital"),
+        ("esq", "esquina"),
+    ]
+]
+
+# Special mapping for fixing phoneme sequences
+_special_map = [
+    ("RR", "RR"),  # Keep rolled R as is
+    ("NY", "NY"),  # Keep ñ pronunciation as is
+    ("AA1", "AA1"), # Keep primary stress
+    ("EH1", "EH1"),
+    ("IY1", "IY1"),
+    ("OW1", "OW1"),
+    ("UW1", "UW1"),
+    # Fix common Spanish phoneme combinations
+    ("S|IY|OW1|N", "S|IY|OW1|N"),  # sión
+    ("S|IY|AA1", "S|IY|AA1"),      # sía
+    ("B|L", "B L"),               # Improve bl cluster
+    ("P|L", "P L"),               # Improve pl cluster
+    ("G|L", "G L"),               # Improve gl cluster
+    ("K|L", "K L"),               # Improve cl cluster
+]
+
 # Regular expressions for finding syllables and word patterns
 # This is a simplified version - Spanish syllabification has complex rules
 _CONSONANT_CLUSTER_RE = re.compile(r'[bcdfghjklmnñpqrstvwxyz]+')
 _VOWEL_CLUSTER_RE = re.compile(r'[aeiouáéíóúü]+')
+
+# Number handling
+_comma_number_re = re.compile(r"([0-9][0-9\,]+[0-9])")
+_decimal_number_re = re.compile(r"([0-9]+\.[0-9]+)")
+_percent_number_re = re.compile(r"([0-9\.\,]*[0-9]+%)")
+_euros_re = re.compile(r"([0-9\,]*[0-9]+)€")
+_fraction_re = re.compile(r"([0-9]+)/([0-9]+)")
+_ordinal_re = re.compile(r"([0-9]+)(º|ª)")
+_number_re = re.compile(r"[0-9]+")
+
+def _expand_abbreviations(text):
+    """Expand Spanish abbreviations."""
+    for regex, replacement in _abbreviations:
+        text = re.sub(regex, replacement, text)
+    return text
+
+def _remove_commas(m):
+    """Remove commas from numbers."""
+    return m.group(1).replace(",", "")
+
+def _expand_decimal_point(m):
+    """Convert decimal points to spoken form."""
+    return m.group(1).replace(".", " coma ")
+
+def _expand_percent(m):
+    """Convert percentages to spoken form."""
+    return m.group(1).replace("%", " por ciento")
+
+def _expand_euros(m):
+    """Convert euro amounts to spoken form."""
+    amount = m.group(1).replace(",", "")
+    if amount == "1":
+        return amount + " euro"
+    else:
+        return amount + " euros"
+
+def _expand_fraction(m):
+    """Convert fractions to words."""
+    numerator = int(m.group(1))
+    denominator = int(m.group(2))
+    
+    # Common fractions
+    if numerator == 1 and denominator == 2:
+        return "un medio"
+    if numerator == 1 and denominator == 3:
+        return "un tercio"
+    if numerator == 1 and denominator == 4:
+        return "un cuarto"
+    
+    # General case
+    if numerator == 1:
+        if denominator == 1:
+            return "un entero"
+        else:
+            return f"un {_get_ordinal_suffix(denominator)}"
+    else:
+        return f"{numerator} {_get_ordinal_suffix(denominator)}s"
+
+def _get_ordinal_suffix(n):
+    """Get Spanish ordinal suffix."""
+    if n == 1:
+        return "entero"
+    elif n == 2:
+        return "medio"
+    elif n == 3:
+        return "tercio"
+    elif n == 4:
+        return "cuarto"
+    elif n == 5:
+        return "quinto"
+    elif n == 6:
+        return "sexto"
+    elif n == 7:
+        return "séptimo"
+    elif n == 8:
+        return "octavo"
+    elif n == 9:
+        return "noveno"
+    elif n == 10:
+        return "décimo"
+    # More complex cases
+    else:
+        return f"avo"  # Simplified
+
+def _expand_ordinal(m):
+    """Convert ordinals to words."""
+    number = int(m.group(1))
+    gender = "a" if m.group(2) == "ª" else "o"
+    
+    if number == 1:
+        return "primer" + gender
+    elif number == 2:
+        return "segund" + gender
+    elif number == 3:
+        return "tercer" + gender
+    elif number == 4:
+        return "cuart" + gender
+    elif number == 5:
+        return "quint" + gender
+    elif number == 6:
+        return "sext" + gender
+    elif number == 7:
+        return "séptim" + gender
+    elif number == 8:
+        return "octav" + gender
+    elif number == 9:
+        return "noven" + gender
+    elif number == 10:
+        return "décim" + gender
+    else:
+        # Simplified handling for higher numbers
+        return f"{_expand_number(number)} "
+
+def _expand_number(m):
+    """Convert numbers to words."""
+    num = int(m.group(0))
+    
+    # Special cases
+    if num == 0:
+        return "cero"
+    elif num == 1:
+        return "uno"
+    elif num == 2:
+        return "dos"
+    # ... and so on for other numbers
+    
+    # Handle tens
+    if 10 <= num < 30:
+        if num == 10:
+            return "diez"
+        elif num == 11:
+            return "once"
+        elif num == 12:
+            return "doce"
+        elif num == 13:
+            return "trece"
+        elif num == 14:
+            return "catorce"
+        elif num == 15:
+            return "quince"
+        elif num == 16:
+            return "dieciséis"
+        elif num == 17:
+            return "diecisiete"
+        elif num == 18:
+            return "dieciocho"
+        elif num == 19:
+            return "diecinueve"
+        elif num == 20:
+            return "veinte"
+        elif num == 21:
+            return "veintiuno"
+        elif num == 22:
+            return "veintidós"
+        elif num == 23:
+            return "veintitrés"
+        elif num == 24:
+            return "veinticuatro"
+        elif num == 25:
+            return "veinticinco"
+        elif num == 26:
+            return "veintiséis"
+        elif num == 27:
+            return "veintisiete"
+        elif num == 28:
+            return "veintiocho"
+        elif num == 29:
+            return "veintinueve"
+    
+    # Basic implementation for other numbers (simplified)
+    # In a complete implementation, we'd handle higher numbers
+    return str(num)
+
+def normalize_numbers(text):
+    """Normalize numbers in Spanish text."""
+    text = re.sub(_comma_number_re, _remove_commas, text)
+    text = re.sub(_euros_re, _expand_euros, text)
+    text = re.sub(_fraction_re, _expand_fraction, text)
+    text = re.sub(_decimal_number_re, _expand_decimal_point, text)
+    text = re.sub(_percent_number_re, _expand_percent, text)
+    text = re.sub(_ordinal_re, _expand_ordinal, text)
+    text = re.sub(_number_re, _expand_number, text)
+    return text
 
 def _preprocess_text(text: str) -> str:
     """
@@ -216,6 +439,10 @@ def _handle_special_cases(word: str) -> str:
     Returns:
         The word with special cases marked for phoneme conversion.
     """
+    # Check if word is in exception list
+    if word in _EXCEPTION_WORDS:
+        return _EXCEPTION_WORDS[word]
+    
     # Check common digraphs and mark them
     for digraph, _ in _DIGRAPHS.items():
         word = word.replace(digraph, f"_{digraph}_")
@@ -353,6 +580,72 @@ def spanish_text_to_phonemes(text: str) -> str:
     
     return ' '.join(result_phonemes)
 
+def _spanish_to_ipa(text):
+    """
+    Convert Spanish text to phonetic form, handling numbers and abbreviations.
+    Similar to the _english_to_ipa function, following the same pattern.
+    
+    Args:
+        text: Spanish text input
+        
+    Returns:
+        Processed text with normalized numbers and expanded abbreviations
+    """
+    text = text.lower()
+    text = _expand_abbreviations(text)
+    text = normalize_numbers(text)
+    return text
+
+def special_map(text):
+    """
+    Apply special mapping rules to fix phoneme patterns.
+    Similar to the special_map function in english.py
+    
+    Args:
+        text: Phoneme text to process
+        
+    Returns:
+        Processed phoneme text with fixes applied
+    """
+    for regex, replacement in _special_map:
+        regex = regex.replace("|", "\|")
+        while re.search(r"(^|[_|]){}([_|]|$)".format(regex), text):
+            text = re.sub(
+                r"(^|[_|]){}([_|]|$)".format(regex), r"\1{}\2".format(replacement), text
+            )
+    return text
+
+def spanish_to_ipa(text, text_tokenizer):
+    """
+    Main function to process Spanish text through the full pipeline.
+    Follows the same pattern as english_to_ipa in english.py
+    
+    Args:
+        text: Spanish text to process
+        text_tokenizer: Tokenizer object to use for processing
+        
+    Returns:
+        IPA representation of the Spanish text
+    """
+    if isinstance(text, str):
+        text = _spanish_to_ipa(text)
+    else:
+        text = [_spanish_to_ipa(t) for t in text]
+        
+    phonemes = text_tokenizer(text)
+    
+    # Add word boundary if needed
+    if isinstance(phonemes, str) and phonemes[-1] in "pbtdkgmnñfszxrRlw":
+        phonemes += "|_"
+        
+    if isinstance(text, str):
+        return special_map(phonemes)
+    else:
+        result_ph = []
+        for phone in phonemes:
+            result_ph.append(special_map(phone))
+        return result_ph
+
 def text_to_sequence(text: str) -> str:
     """
     Convert Spanish text to a phoneme sequence for DiffRhythm.
@@ -369,13 +662,20 @@ def text_to_sequence(text: str) -> str:
 if __name__ == "__main__":
     # Test the Spanish G2P module
     test_phrases = [
-        "perú",
-        "méxico",
+        "hola mundo",
+        "buenos días",
+        "¿cómo estás?",
         "españa",
-        "chile",
-        "argentina",
+        "México",
+        "guitarra",
+        "quesadilla",
+        "cerveza",
+        "paella valenciana",
+        "churrería",
+        "lluvia en sevilla",
+        "el quijote de la mancha"
     ]
     
     for phrase in test_phrases:
         phonemes = text_to_sequence(phrase)
-        print(f"{phrase} -> {phonemes}")
+        print(f"{phrase} → {phonemes}")
