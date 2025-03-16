@@ -41,6 +41,27 @@ class TextTokenizer:
 
         self.separator = separator
 
+        if language == "en-us":
+            from g2p.g2p.english import text_to_sequence
+            self.text_to_sequence = text_to_sequence
+        elif language == "cmn":
+            from g2p.utils.front_utils import get_frontend_model
+            self.text_to_sequence = get_frontend_model(
+                frontend_conf="g2p/sources/g2p_chinese_model/config.json", frontend_type="g2p_cn"
+            ).get_phoneme_ids
+        elif language == "fr-fr":
+            from g2p.g2p.french import text_to_sequence
+            self.text_to_sequence = text_to_sequence
+        elif language == "ko":
+            from g2p.g2p.korean import text_to_sequence
+            self.text_to_sequence = text_to_sequence
+        elif language == "de":
+            from g2p.g2p.german import text_to_sequence
+            self.text_to_sequence = text_to_sequence
+        elif language == "es":
+            from g2p.g2p.spanish import text_to_sequence
+            self.text_to_sequence = text_to_sequence
+
     # convert chinese punctuation to english punctuation
     def convert_chinese_punctuation(self, text: str) -> str:
         text = text.replace("，", ",")
