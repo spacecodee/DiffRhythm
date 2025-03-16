@@ -20,6 +20,7 @@ class PhonemeBpeTokenizer:
             "fr": "fr-fr",
             "ko": "ko",
             "de": "de",
+            "es": "es",  # Add Spanish language
         }
         self.text_tokenizers = {}
         self.int_text_tokenizers()
@@ -28,7 +29,7 @@ class PhonemeBpeTokenizer:
             json_data = f.read()
         data = json.loads(json_data)
         self.vocab = data["vocab"]
-        LangSegment.setfilters(["en", "zh", "ko", "fr", "de"])
+        LangSegment.setfilters(["en", "zh", "ko", "fr", "de", "es"])  # Add Spanish
 
     def int_text_tokenizers(self):
         for key, value in self.lang2backend.items():
